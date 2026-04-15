@@ -169,13 +169,29 @@ def format_chapter_info(chapter_info: dict) -> str:
         summary=chapter_info.get('chapter_summary', '未提供')
     )
 
-def parse_search_keywords(response_text: str) -> list:
-    """解析新版关键词格式（示例输入：'科技公司·数据泄露\n地下实验室·基因编辑'）"""
-    return [
+def parse_search_keywords(response_text: str, fallback_context: dict = None) -> list:
+    """解析新版关键词格式（示例输入：'科技公司·数据泄露\n地下实验室·基因编辑'）
+
+    '·' 패턴이 없어 빈 리스트가 되면 fallback_context에서 기본 키워드를 생성합니다.
+    fallback_context 키: 'chapter_title', 'scene_location', 'characters_involved'
+    """
+    keywords = [
         line.strip().replace('·', ' ')
         for line in response_text.strip().split('\n')
         if '·' in line
-    ][:5]  # 最多取5组
+    ][:5]
+
+    if not keywords and fallback_context:
+        fallback = []
+        for key in ('chapter_title', 'scene_location', 'characters_involved'):
+            val = (fallback_context.get(key) or '').strip()
+            if val and val not in ('未指定', ''):
+                fallback.append(val)
+        keywords = fallback[:5]
+        if keywords:
+            logging.warning(f"[parse_search_keywords] '·' 패턴 없음, 폴백 키워드 사용: {keywords}")
+
+    return keywords
 
 def apply_content_rules(texts: list, novel_number: int) -> list:
     """应用内容处理规则"""
@@ -418,7 +434,14 @@ def build_chapter_prompt(
         )
         
         search_response = invoke_with_cleaning(llm_adapter, search_prompt)
-        keyword_groups = parse_search_keywords(search_response)
+        keyword_groups = parse_search_keywords(
+            search_response,
+            fallback_context={
+                'chapter_title': chapter_title,
+                'scene_location': scene_location,
+                'characters_involved': characters_involved,
+            }
+        )
 
         # 执行向量检索
         all_contexts = []

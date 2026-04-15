@@ -25,7 +25,10 @@ warnings.filterwarnings('ignore', message='.*Torch was not compiled with flash a
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # 禁用tokenizer并行警告
 
 from chromadb.config import Settings
-from langchain.docstore.document import Document
+try:
+    from langchain_core.documents import Document
+except ImportError:
+    from langchain.docstore.document import Document
 from sklearn.metrics.pairwise import cosine_similarity
 from .common import call_with_retry
 

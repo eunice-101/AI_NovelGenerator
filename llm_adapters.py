@@ -3,15 +3,24 @@
 import logging
 from typing import Optional
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
-# from google import genai
-import google.generativeai as genai
-# from google.genai import types
-from google.generativeai import types
-from azure.ai.inference import ChatCompletionsClient
-from azure.core.credentials import AzureKeyCredential
-from azure.ai.inference.models import SystemMessage, UserMessage
 from openai import OpenAI
+import anthropic
 import requests
+
+try:
+    import google.generativeai as genai
+    from google.generativeai import types as genai_types
+    _GEMINI_AVAILABLE = True
+except ImportError:
+    _GEMINI_AVAILABLE = False
+
+try:
+    from azure.ai.inference import ChatCompletionsClient
+    from azure.core.credentials import AzureKeyCredential
+    from azure.ai.inference.models import SystemMessage, UserMessage
+    _AZURE_AVAILABLE = True
+except ImportError:
+    _AZURE_AVAILABLE = False
 
 
 def check_base_url(url: str) -> str:
@@ -100,35 +109,24 @@ class GeminiAdapter(BaseLLMAdapter):
     """
     适配 Google Gemini (Google Generative AI) 接口
     """
-
-    # PenBo 修复新版本google-generativeai 不支持 Client 类问题；而是使用 GenerativeModel 类来访问API
     def __init__(self, api_key: str, base_url: str, model_name: str, max_tokens: int, temperature: float = 0.7, timeout: Optional[int] = 600):
+        if not _GEMINI_AVAILABLE:
+            raise ImportError("google-generativeai 패키지가 설치되지 않았습니다. pip install google-generativeai")
         self.api_key = api_key
         self.model_name = model_name
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.timeout = timeout
-
-        # 配置API密钥
         genai.configure(api_key=self.api_key)
-        
-        # 创建生成模型实例
         self._model = genai.GenerativeModel(model_name=self.model_name)
 
     def invoke(self, prompt: str) -> str:
         try:
-            # 设置生成配置
-            generation_config = genai.types.GenerationConfig(
+            generation_config = genai_types.GenerationConfig(
                 max_output_tokens=self.max_tokens,
                 temperature=self.temperature,
             )
-            
-            # 生成内容
-            response = self._model.generate_content(
-                prompt,
-                generation_config=generation_config
-            )
-            
+            response = self._model.generate_content(prompt, generation_config=generation_config)
             if response and response.text:
                 return response.text
             else:
@@ -241,6 +239,8 @@ class AzureAIAdapter(BaseLLMAdapter):
     使用 azure-ai-inference 库进行API调用
     """
     def __init__(self, api_key: str, base_url: str, model_name: str, max_tokens: int, temperature: float = 0.7, timeout: Optional[int] = 600):
+        if not _AZURE_AVAILABLE:
+            raise ImportError("azure-ai-inference 패키지가 설치되지 않았습니다. pip install azure-ai-inference")
         import re
         # 匹配形如 https://xxx.services.ai.azure.com/models/chat/completions?api-version=xxx 的URL
         match = re.match(r'https://(.+?)\.services\.ai\.azure\.com(?:/models)?(?:/chat/completions)?(?:\?api-version=(.+))?', base_url)
@@ -389,6 +389,33 @@ class GrokAdapter(BaseLLMAdapter):
             logging.error(f"Grok API 调用失败: {e}")
             return ""
 
+class AnthropicAdapter(BaseLLMAdapter):
+    """
+    Anthropic Claude 네이티브 어댑터 (anthropic SDK 직접 사용).
+    interface_format = "Anthropic" 일 때 사용.
+    """
+    def __init__(self, api_key: str, base_url: str, model_name: str,
+                 max_tokens: int, temperature: float = 0.7, timeout: Optional[int] = 600):
+        self.model_name = model_name
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        self.timeout = timeout
+        self._client = anthropic.Anthropic(api_key=api_key)
+
+    def invoke(self, prompt: str) -> str:
+        try:
+            response = self._client.messages.create(
+                model=self.model_name,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return response.content[0].text if response.content else ""
+        except Exception as e:
+            logging.error(f"AnthropicAdapter 호출 실패: {e}")
+            return ""
+
+
 def create_llm_adapter(
     interface_format: str,
     base_url: str,
@@ -402,7 +429,9 @@ def create_llm_adapter(
     工厂函数：根据 interface_format 返回不同的适配器实例。
     """
     fmt = interface_format.strip().lower()
-    if fmt == "deepseek":
+    if fmt == "anthropic":
+        return AnthropicAdapter(api_key, base_url, model_name, max_tokens, temperature, timeout)
+    elif fmt == "deepseek":
         return DeepSeekAdapter(api_key, base_url, model_name, max_tokens, temperature, timeout)
     elif fmt == "openai":
         return OpenAIAdapter(api_key, base_url, model_name, max_tokens, temperature, timeout)

@@ -50,34 +50,25 @@ def debug_log(prompt: str, response_content: str):
 
 def invoke_with_cleaning(llm_adapter, prompt: str, max_retries: int = 3) -> str:
     """调用 LLM 并清理返回结果"""
-    print("\n" + "="*50)
-    print("发送到 LLM 的提示词:")
-    print("-"*50)
-    print(prompt)
-    print("="*50 + "\n")
-    
+    logging.info(f"[LLM 호출] 프롬프트 길이: {len(prompt)}자")
+
     result = ""
     retry_count = 0
-    
+
     while retry_count < max_retries:
         try:
             result = llm_adapter.invoke(prompt)
-            print("\n" + "="*50)
-            print("LLM 返回的内容:")
-            print("-"*50)
-            print(result)
-            print("="*50 + "\n")
-            
-            # 清理结果中的特殊格式标记
+            logging.info(f"[LLM 응답] 응답 길이: {len(result)}자")
+
             result = result.replace("```", "").strip()
             if result:
                 return result
             retry_count += 1
         except Exception as e:
-            print(f"调用失败 ({retry_count + 1}/{max_retries}): {str(e)}")
+            logging.warning(f"调用失败 ({retry_count + 1}/{max_retries}): {str(e)}")
             retry_count += 1
             if retry_count >= max_retries:
                 raise e
-    
+
     return result
 

@@ -24,7 +24,7 @@ def compute_chunk_size(number_of_chapters: int, max_tokens: int) -> int:
       chunk_size = (floor(max_tokens/100/10)*10) - 10
     并确保 chunk_size 不会小于1或大于实际章节数。
     """
-    tokens_per_chapter = 200.0
+    tokens_per_chapter = 300.0
     ratio = max_tokens / tokens_per_chapter
     ratio_rounded_to_10 = int(ratio // 10) * 10
     chunk_size = ratio_rounded_to_10 - 10
