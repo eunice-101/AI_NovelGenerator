@@ -41,11 +41,11 @@ def remove_think_tags(text: str) -> str:
     return re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
 
 def debug_log(prompt: str, response_content: str):
-    logging.info(
-        f"\n[#########################################  Prompt  #########################################]\n{prompt}\n"
+    logging.debug(
+        f"\n[Prompt]\n{prompt}\n"
     )
-    logging.info(
-        f"\n[######################################### Response #########################################]\n{response_content}\n"
+    logging.debug(
+        f"\n[Response]\n{response_content}\n"
     )
 
 def invoke_with_cleaning(llm_adapter, prompt: str, max_retries: int = 3) -> str:

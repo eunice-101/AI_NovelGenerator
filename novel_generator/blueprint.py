@@ -24,7 +24,7 @@ def compute_chunk_size(number_of_chapters: int, max_tokens: int) -> int:
       chunk_size = (floor(max_tokens/100/10)*10) - 10
     并确保 chunk_size 不会小于1或大于实际章节数。
     """
-    tokens_per_chapter = 300.0
+    tokens_per_chapter = 600.0
     ratio = max_tokens / tokens_per_chapter
     ratio_rounded_to_10 = int(ratio // 10) * 10
     chunk_size = ratio_rounded_to_10 - 10
@@ -98,9 +98,8 @@ def Chapter_blueprint_generate(
 
     if existing_blueprint:
         logging.info("Detected existing blueprint content. Will resume chunked generation from that point.")
-        pattern = r"第\s*(\d+)\s*章"
-        existing_chapter_numbers = re.findall(pattern, existing_blueprint)
-        existing_chapter_numbers = [int(x) for x in existing_chapter_numbers if x.isdigit()]
+        pattern = r"(?:第\s*(\d+)\s*章|제\s*(\d+)\s*장)"
+        existing_chapter_numbers = [int(a or b) for a, b in re.findall(pattern, existing_blueprint)]
         max_existing_chap = max(existing_chapter_numbers) if existing_chapter_numbers else 0
         logging.info(f"Existing blueprint indicates up to chapter {max_existing_chap} has been generated.")
         final_blueprint = existing_blueprint

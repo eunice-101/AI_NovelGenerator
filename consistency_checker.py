@@ -34,7 +34,7 @@ def check_consistency(
     model_name: str,
     temperature: float = 0.3,
     plot_arcs: str = "",
-    interface_format: str = "OpenAI",
+    interface_format: str = "openai",
     max_tokens: int = 2048,
     timeout: int = 600
 ) -> str:
